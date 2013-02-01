@@ -1,9 +1,10 @@
 # Author: Ben Brittain
 
-# CONSTANTS
-#
-
-# traversal codes
+#constants
+FRAMESIZE = 40
+GRASS   = 0
+TREE    = 1
+TENT    = 2
 
         .data
         .align 2
@@ -19,7 +20,6 @@ error_tree_str:
 
 error_loc_str:
         .asciiz "Illegal tree location, Tents terminating\n"
-
 
         .align 2
 
@@ -41,19 +41,109 @@ tree:   .byte 0
 rows:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 cols:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
+str_space:  .asciiz " "
+str_grass:  .asciiz "."
+str_tree:   .asciiz "T"
+str_tent:   .asciiz "A"
+str_floor:  .asciiz "-"
+str_border: .asciiz "|"
+str_corner: .asciiz "+"
+str_banner: .asciiz "******************\n**     TENTS    **\n******************"
+str_newline:.asciiz "\n"
+
         .text				# this is program code
         .align	4			# code must be on word boundaries
         .globl	main			# main is a global label
 
-FRAMESIZE = 40
-GRASS   = 0
-TREE    = 1
-TENT    = 2
 
 main:
         jal     read_board              # function call to read in board from file
+        jal     print_board             # function call to pretty-print board
         j       exit                    # end the program
 
+print_board:
+        addi    $sp, $sp, -FRAMESIZE
+        sw      $ra, -4+FRAMESIZE($sp)
+        sw      $s7, 28($sp)
+        sw      $s6, 24($sp)
+        sw      $s5, 20($sp)
+        sw      $s4, 16($sp)
+        sw      $s3, 12($sp)
+        sw      $s2, 8($sp)
+        sw      $s1, 4($sp)
+        sw      $s0, 0($sp)
+
+        ### load in all the vals ###
+        la      $s0, size           # load address of boardsize
+        lb      $s0, 0($s0)         # load boardsize form address
+        la      $s1, rows           # load first row sum in s1
+        la      $s2, cols           # load first col sum in s2
+        la      $s3, board          # load board in s3
+        li      $v0, 4              # only print values
+
+        ### for each row, for each col ###
+        li      $t0, 0              # count rows
+    for_row:
+        li      $t1, 0              # count cols
+        beq     $s0, $t0, done_rows # if t0 counter reaches board size, go print sums         
+
+        la  $a0, str_border         # print |
+        syscall
+        la  $a0, str_space          # print " "
+        syscall
+
+    for_col:
+        beq     $t1, $s0, finish_row# if t1 is the same size as board, finish the row
+        mul     $t3, $t0, $s0       # start array offset        
+        add     $t3, $t3, $t1       # add in col num
+        add     $t3, $t3, $s3       # add in memory address now points at value
+
+        lb      $t4, 0($t3)         # load object at t3 into t4
+        li      $t5, GRASS
+        beq     $t4, $t5, print_grass # if 0, print grass
+        li      $t5, TREE
+        beq     $t4, $t5, print_tree # if 0, print tree
+        li      $t5, TENT
+        beq     $t4, $t5, print_tent # if 0, print tent
+
+    print_grass:
+        la  $a0, str_grass          # print .
+        j actual_print
+    print_tree:
+        la  $a0, str_tree           # print T 
+        j actual_print
+    print_tent:
+        la  $a0, str_tent           # print A
+        j actual_print
+    actual_print:
+        syscall
+        la  $a0, str_space          # print " "
+        syscall
+
+        addi    $t1, $t1, 1         # increment col counter
+        j for_col
+
+    finish_row:
+        la  $a0, str_border         # print |
+        syscall
+        la  $a0, str_newline        # print \n
+        syscall
+        addi    $t0, $t0, 1
+        j for_row
+
+    done_rows:
+        lw      $ra, -4+FRAMESIZE($sp)
+        lw      $s7, 28($sp)
+        lw      $s6, 24($sp)
+        lw      $s5, 20($sp)
+        lw      $s4, 16($sp)
+        lw      $s3, 12($sp)
+        lw      $s2, 8($sp)
+        lw      $s1, 4($sp)
+        lw      $s0, 0($sp)
+        addi    $sp, $sp, FRAMESIZE
+
+        jr      $ra
 
 read_board:
         addi    $sp, $sp, -FRAMESIZE
@@ -70,6 +160,8 @@ read_board:
 	li 	$v0, 5                  # read in board size
 	syscall
         move    $s0, $v0                # store board size in s0
+        la      $s6, size               # load address for board size
+        sb      $s0, 0($s6)             # store s0 in size
 
         ### check that board is of appropriate dimensions ###
         li      $t0, 1                  # store 1 in t0
@@ -154,7 +246,6 @@ read_board:
         addi    $t0, $t0, 1             # increment loop counter
         j tree_read
     tree_done:
-        break
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
