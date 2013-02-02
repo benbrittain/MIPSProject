@@ -70,7 +70,7 @@ main:
 
 
 
-        li      $a0, 14                  # tree 1
+        li      $a0, 2                  # tree 1
         li      $a1, 4                  # position 2 now 3 now 1 now 4
         jal     treeplacement           #[DEBUG]
         la      $s3, board              # load board in s3
@@ -258,8 +258,20 @@ treeplacement:
         sb      $t3, 0($t2)         # store tent in spot on board
         j donedirection
     west:
+        addi    $t1, $s3, -1        # location TENT would be placed
+        div     $t1, $s0            # divide TENT location by board dim
+        mfhi    $t3                 # col index
+        addi    $t2, $s0, -1        # size of column
+        beq     $t3, $t2, no_placement # if on last column (as in they are equal) then bad placement
+        add     $t2, $s1, $t1       # location of TENT offset on board 
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        beq     $t3, $zero, west_empty # spot is empty
+        j       no_placement            # if not empty, no placement there
+    west_empty:
+        li      $t3, TENT           # put a tent in t3
+        add     $t2, $s1, $t1       # location of TENT offset on board 
+        sb      $t3, 0($t2)         # store tent in spot on board
         j donedirection
-
     donedirection:
         li      $v0, 1              # set v0 to be true!
         j end_placement
