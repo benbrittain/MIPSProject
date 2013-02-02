@@ -70,14 +70,19 @@ main:
 
 
 
-        li      $a0, 4                  # position 4
-        li      $a1, 0                  # tree 0
-        jal     check                   #[DEBUG]
+        li      $a0, 14                  # tree 1
+        li      $a1, 4                  # position 2 now 3 now 1 now 4
+        jal     treeplacement           #[DEBUG]
+        la      $s3, board              # load board in s3
+        break
+#        li      $a0, 4                  # position 4
+#        li      $a1, 0                  # tree 0
+#        jal     check                   #[DEBUG]
 
 
 #        jal     guess                   # function call to brute-force algorithm
 #
-#        jal     print_board             # [TESTING]
+        jal     print_board             # [TESTING]
 ### WORKS, JUST NEED REMOVED FOR TESTING ###
 #        move    $s0, $v0                # what does guess return?
 #        beq     $s0, $zero, fail        # if 0, then no solution
@@ -119,7 +124,6 @@ guess:
         la      $s4, tree               # load address of tree
         lb      $s4, 0($s4)             # load tree in s4
         la      $s5, trees              # load address of trees
-        #break                           # [DEBUG, PRINT OUT TREES]
 
         # a0 is the current tree we are testing 0 - $s4
         move    $s6, $a0                # tree is now in $s5
@@ -200,27 +204,69 @@ treeplacement:
         move    $s4, $a1            # direction TENT is being placed
 
         li      $t1, NORTH
-        beq     $t1, $s4, north     # if t1 and s4 are the same, NORT
+        beq     $t1, $s4, north     # if t1 and s4 are the same, NORTH
         li      $t1, SOUTH 
-        beq     $t1, $s4, south     # if t1 and s4 are the same, NORT
+        beq     $t1, $s4, south     # if t1 and s4 are the same, SOUTH
         li      $t1, EAST 
-        beq     $t1, $s4, east      # if t1 and s4 are the same, NORT
+        beq     $t1, $s4, east      # if t1 and s4 are the same, EAST
         li      $t1, WEST 
-        beq     $t1, $s4, west      # if t1 and s4 are the same, NORT
+        beq     $t1, $s4, west      # if t1 and s4 are the same, WEST
     north:
+        break
+        li      $t1, -1             # negate
+        mul     $t1, $s0, $t1       # multiply -1 times board size
+        add     $t1, $s3, $t1       # location TENT would be placed ( - offset + board size for previous row)
+
+        slt     $t2, $t1, $zero     # is t1 less than 0?
+        li      $t7, 1              # we need a $one
+        beq     $t2, $t7, no_placement # if it is less than 0, fail!
+
+        add     $t2, $s1, $t1       # location TENT would be placed ( - offset + board size for previous row)
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        beq     $t3, $zero, north_empty # spot is empty
+        j       no_placement
+    north_empty:
+        li      $t3, TENT           # put a tent in t3
+        sb      $t3, 0($t2)         # store tent in spot on board
         j donedirection
     south:
+        add     $t1, $s3, $s0       # location TENT would be placed (offset + board size for next row)
+        mul     $t2, $s0, $s0       # max board size
+        slt     $t2, $t2, $t1       # is t2 (board size) < new tent location?
+        li      $t7, 1              # we need a $one
+        beq     $t2, $t7, no_placement # if it is overflowed, no placement
+        add     $t1, $s1, $t1       # memory address of tent
+        lb      $t3, 0($t1)         # whats at proposed tent spot
+        beq     $t3, $zero, south_empty # spot is empty
+        j       no_placement
+    south_empty:
+        li      $t3, TENT           # put a tent in t3
+        sb      $t3, 0($t1)         # store tent in spot on board
         j donedirection
     east:
+        addi    $t1, $s3, 1         # location TENT would be placed
+        div     $t1, $s0            # divide TENT location by board dim
+        mfhi    $t3                 # col index
+        beq     $t3, $zero, no_placement # if in col 0, overflowed to next line. BAD
+        add     $t2, $s1, $t1       # location of TENT offset on board 
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        beq     $t3, $zero, east_empty # spot is empty
+        j       no_placement            # if not empty, no placement there
+    east_empty:
+        li      $t3, TENT           # put a tent in t3
+        add     $t2, $s1, $t1       # location of TENT offset on board 
+        sb      $t3, 0($t2)         # store tent in spot on board
         j donedirection
     west:
         j donedirection
 
-
+    donedirection:
+        li      $v0, 1              # set v0 to be true!
+        j end_placement
     no_placement:
         li      $v0, 0              # set v0 to be false
 
-    donedirection:
+    end_placement:
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
