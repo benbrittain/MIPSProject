@@ -63,15 +63,18 @@ main:
         jal     print_board             # function call to pretty-print board
         move    $a0, $zero              # what cell are we on?
         jal     guess                   # function call to brute-force algorithm
-        move    $s0, $v0                # what does guess return?
-        beq     $s0, $zero, fail        # if 0, then no solution
-        jal     print_board             # function call to pretty-print board
-        j valid_board
-    fail:
-        li      $v0, 4              # only print strings values
-        la  $a0, str_imposibru          # print "Impossible Puzzle"
-        syscall
-         
+
+        jal     print_board             # [TESTING]
+### WORKS, JUST NEED REMOVED FOR TESTING ###
+#        move    $s0, $v0                # what does guess return?
+#        beq     $s0, $zero, fail        # if 0, then no solution
+#        jal     print_board             # function call to pretty-print board
+#        j valid_board
+#    fail:
+#        li      $v0, 4                  # only print strings values
+#        la      $a0, str_imposibru      # print "Impossible Puzzle"
+#        syscall
+#         
     valid_board:
         j       exit                    # end the program
 
@@ -114,6 +117,7 @@ guess:
         move    $a0, $s5            # set current cell for check
         move    $a1, $s6            # a TENT or some GRASS in an argument
         jal     check               # check if cell is valid
+        break
         beq     $v0, $t8, valid     # go to valid if it works, otherwise, FAIL
         j failed_guess
     valid:
@@ -169,11 +173,53 @@ check:
         la      $s4, tree           # load address of tree
         lb      $s4, 0($s4)         # load tree in s4
 
-        move    $s5, $a0            # store offset in s5
-        move    $s6, $a1            # store TENT or GRASS in s6
+        div     $s5, $s0            # divide by size to get col/row
+        mflo    $t0                 # t0 is the row
+        mfhi    $t1                 # t1 is the col
+        #break                       # [DEBUG]
 
-        break   # [DEBUG]
+        ### check the row sum with new square (needs to be less) ###
+        mul     $t2, $t0, $s0       # get first col in row
+        li      $t5, 0              # running sum of row
+        li      $t6, 0              # counter for when to break
+    ch_r_loop:
+        beq     $t6, $s0, fin_r     # if counter is size of board, be done
+        add     $t3, $s3, $t2       # add board and current offset into t3
+        lb      $t3, 0($t3)         # what's in that col? also put in t3
+        li      $t4, GRASS          # put some grass in 
+        beq     $t3, $t4, r_no_add  # don't add up if you are grass
+        li      $t4, TREE           # put some TREE in 
+        beq     $t3, $t4, r_no_add  # don't add up if you are grass
+        li      $t4, UGRASS         # put some UGRASS in 
+        beq     $t3, $t4, r_no_add  # don't add up if you are grass
+        addi    $t5, $t5, 1         # add one to sum if tent
+    r_no_add:
+        addi    $t2, $t2, 1         # increment offset counter
+        addi    $t6, $t6, 1         # increment break counter
+        j ch_r_loop                 # loop while still in row
+    fin_r:
+        add     $t4, $s1, $t0       # add together row offset and row address
+        lb      $t4, 0($t4)         # put a byte in there
+        slt     $t6, $t5, $t4       # is the sum (t5) less than the row sum (t4)? 1 if so
+        beq     $t6, $zero, fail_check # if not, fail return 0
+        ### check the col sum with new tent ###
 
+        ### check that there is a tree next to new tent ###
+            # check that tree doesn't already have an attached tree #
+        
+        li      $v0, 1
+        break
+        j finish_check
+    fail_check:
+        li      $v0, 0
+       j finish_check 
+#    grass_check:
+#        li      $v1, 1              # return true
+#        # possibly if in last square and things don't add up might be the way to check?
+#    valid_check:
+    finish_check:
+
+    #[CHECK YOU ARN"T USING ANY Tx that GET REWRITTEN WITH CHECK!!!]
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
