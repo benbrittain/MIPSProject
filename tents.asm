@@ -38,10 +38,12 @@ board:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 size:   .byte 0
-tree:   .byte 0
 rows:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 cols:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
+tree:   .byte 0
+trees:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 str_space:  .asciiz " "
 str_grass:  .asciiz "."
 str_tree:   .asciiz "T"
@@ -90,53 +92,62 @@ guess:
         sw      $s1, 4($sp)
         sw      $s0, 0($sp)
 
+        ################
+        #              #
+        #      1       #
+        #    4 T 2     #
+        #      3       #
+        #              #
+        #   0 = notyet #
+        ################
+
         ### load all necessary values ###
-        la      $s0, size           # load address of boardsize
-        lb      $s0, 0($s0)         # load boardsize form address
-        la      $s1, rows           # load first row sum in s1
-        la      $s2, cols           # load first col sum in s2
-        la      $s3, board          # load board in s3
-        la      $s4, tree           # load address of tree
-        lb      $s4, 0($s4)         # load tree in s4
+        la      $s0, size               # load address of boardsize
+        lb      $s0, 0($s0)             # load boardsize form address
+        la      $s3, board              # load board in s3
+        la      $s4, tree               # load address of tree
+        lb      $s4, 0($s4)             # load tree in s4
+        la      $s5, trees              # load address of trees
 
-        move    $s5, $a0            # move argument0 to s5 
-        mul     $t1, $s0, $s0       # how many cells all together?
-        beq     $s5, $t1, fin_guess # all cells are valid! done!
+        # a0 is the current tree we are testing 0 - $s4
+        move    $s6, $a0                # tree is now in $s5
+        beq     $s6, $s4, guess_good    # if we are on the last tree (maybe +1?), your done
 
-        li      $s6, TENT           # store a TENT in s6 (for now... may degrade to grass)
-        li      $s7, GRASS          # store a plot of grass in s7 (for comparisons sake)
-        add     $t0, $s5, $s3       # current cell offset we are checking (board + curr cell)
-        lb      $t0, 0($t0)         # actual value
-        beq     $t0, $zero, guess_val# if unseen grass tile, try value
-        addi    $a0, $s5, 1         # incement a0
-        jal guess
-        j guess_done
+        li      $s1, 4                  # store possible tree position
+        add     $t0, $s5, $s6           # get tree byte
+        lb      $t0, 0($t0)             # get current tree value
+        beq     $zero, $t0, guess_loop  # guess loop
+        addi    $a0, $s6, 1             # try next tree
+        jal     guess                   # recurse to next tree cell
+        j       guess_fin               # return value returned by guess
 
-    guess_val:
-        li      $t8, 1              # check if true
-        move    $a0, $s5            # set current cell for check
-        move    $a1, $s6            # a TENT or some GRASS in an argument
-        jal     check               # check if cell is valid
-        break
-        beq     $v0, $t8, valid     # go to valid if it works, otherwise, FAIL
-        j failed_guess
-    valid:
-        add     $t0, $s5, $s3       # current cell offset we are checking (board + curr cell)
-        sb      $s6, 0($t0)         # store TENT or grass at location
-        addi    $a0, $s5, 1         # increment a0
-        jal     guess               # recurse!
-        beq     $v0, $t8, guess_done# if 1, return guess!
+    guess_loop:
+        move    $a0, $s1                # pass tree-position as argument
+        move    $a1, $s6                # pass tree number as argument (top left to bottom right)
+        jal     check                   # check that position is valid and the board still works
+        beq     $v0, $zero, guess_bad   # if v0 is 0, bad guess, try different position
+        add     $t0, $s5, $s6           # get tree byte
+        sb      $s1, 0($t0)             # otherwise, put tree into array!
+        addi    $a0, $s6, 1             # move onto next cell
+        jal     guess                   # recurse forward!
+        li      $t1, 1                  # put 1 into t1
+        beq     $v0, $t1, guess_fin     # if guess returns one, finish up!
 
-    failed_guess:
-        addi    $s6, $s6, -1        # turn tent -> grass (can grass turn to Ugrass?)
-        beq     $s6, $s7, guess_val # if grass (1), try guess_val again
-        li      $v0, 0              # return false (0) if failure
-        j guess_done
+    guess_bad:
+        addi    $s1, $s1, -1            # decrement position guess [maybe need to take in board consideration]
+        beq     $s1, $zero, nothing_work# if s1 reaches 0, then nothing works and FAIL
+        j       guess_loop              # otherwise, try guessing again in new position
+    nothing_work:
+        add     $t0, $s5, $s6           # get tree byte
+        lb      $t0, 0($t0)             # get current tree value
+        sb      $zero, 0($t0)           # clear out num
+        li      $v0, 0                  # return failure
+        j guess_fin                     # finish up, skip over good
 
-    fin_guess:
-        li      $v0, 1              # woot! true
-
-    guess_done:
+    guess_good:
+        li      $v0, 1
+        
+    guess_fin:
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
@@ -173,51 +184,8 @@ check:
         la      $s4, tree           # load address of tree
         lb      $s4, 0($s4)         # load tree in s4
 
-        div     $s5, $s0            # divide by size to get col/row
-        mflo    $t0                 # t0 is the row
-        mfhi    $t1                 # t1 is the col
-        #break                       # [DEBUG]
-
-        ### check the row sum with new square (needs to be less) ###
-        mul     $t2, $t0, $s0       # get first col in row
-        li      $t5, 0              # running sum of row
-        li      $t6, 0              # counter for when to break
-    ch_r_loop:
-        beq     $t6, $s0, fin_r     # if counter is size of board, be done
-        add     $t3, $s3, $t2       # add board and current offset into t3
-        lb      $t3, 0($t3)         # what's in that col? also put in t3
-        li      $t4, GRASS          # put some grass in 
-        beq     $t3, $t4, r_no_add  # don't add up if you are grass
-        li      $t4, TREE           # put some TREE in 
-        beq     $t3, $t4, r_no_add  # don't add up if you are grass
-        li      $t4, UGRASS         # put some UGRASS in 
-        beq     $t3, $t4, r_no_add  # don't add up if you are grass
-        addi    $t5, $t5, 1         # add one to sum if tent
-    r_no_add:
-        addi    $t2, $t2, 1         # increment offset counter
-        addi    $t6, $t6, 1         # increment break counter
-        j ch_r_loop                 # loop while still in row
-    fin_r:
-        add     $t4, $s1, $t0       # add together row offset and row address
-        lb      $t4, 0($t4)         # put a byte in there
-        slt     $t6, $t5, $t4       # is the sum (t5) less than the row sum (t4)? 1 if so
-        beq     $t6, $zero, fail_check # if not, fail return 0
-        ### check the col sum with new tent ###
-
-        ### check that there is a tree next to new tent ###
-            # check that tree doesn't already have an attached tree #
-        
-        li      $v0, 1
-        break
-        j finish_check
-    fail_check:
-        li      $v0, 0
-       j finish_check 
-#    grass_check:
-#        li      $v1, 1              # return true
-#        # possibly if in last square and things don't add up might be the way to check?
-#    valid_check:
-    finish_check:
+        # go though all rows, sum, check that it is not more than respective row sum
+        # go though all cols, sum, check that it is not more than respective col sum
 
     #[CHECK YOU ARN"T USING ANY Tx that GET REWRITTEN WITH CHECK!!!]
         lw      $ra, -4+FRAMESIZE($sp)
