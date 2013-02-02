@@ -2,8 +2,9 @@
 
 #constants
 FRAMESIZE = 40
-GRASS   = 0
-TREE    = 1
+UGRASS  = 0
+GRASS   = 1
+TREE    = 3 
 TENT    = 2
 
         .data
@@ -50,6 +51,7 @@ str_border: .asciiz "|"
 str_corner: .asciiz "+"
 str_banner: .asciiz "******************\n**     TENTS    **\n******************"
 str_newline:.asciiz "\n"
+str_imposibru: .asciiz "Impossible Puzzle\n"
 
         .text				# this is program code
         .align	4			# code must be on word boundaries
@@ -59,7 +61,130 @@ str_newline:.asciiz "\n"
 main:
         jal     read_board              # function call to read in board from file
         jal     print_board             # function call to pretty-print board
+        move    $a0, $zero              # what cell are we on?
+        jal     guess                   # function call to brute-force algorithm
+        move    $s0, $v0                # what does guess return?
+        beq     $s0, $zero, fail        # if 0, then no solution
+        jal     print_board             # function call to pretty-print board
+        j valid_board
+    fail:
+        li      $v0, 4              # only print strings values
+        la  $a0, str_imposibru          # print "Impossible Puzzle"
+        syscall
+         
+    valid_board:
         j       exit                    # end the program
+
+guess:
+        addi    $sp, $sp, -FRAMESIZE
+        sw      $ra, -4+FRAMESIZE($sp)
+        sw      $s7, 28($sp)
+        sw      $s6, 24($sp)
+        sw      $s5, 20($sp)
+        sw      $s4, 16($sp)
+        sw      $s3, 12($sp)
+        sw      $s2, 8($sp)
+        sw      $s1, 4($sp)
+        sw      $s0, 0($sp)
+
+        ### load all necessary values ###
+        la      $s0, size           # load address of boardsize
+        lb      $s0, 0($s0)         # load boardsize form address
+        la      $s1, rows           # load first row sum in s1
+        la      $s2, cols           # load first col sum in s2
+        la      $s3, board          # load board in s3
+        la      $s4, tree           # load address of tree
+        lb      $s4, 0($s4)         # load tree in s4
+
+        move    $s5, $a0            # move argument0 to s5 
+        mul     $t1, $s0, $s0       # how many cells all together?
+        beq     $s5, $t1, fin_guess # all cells are valid! done!
+
+        li      $s6, TENT           # store a TENT in s6 (for now... may degrade to grass)
+        li      $s7, GRASS          # store a plot of grass in s7 (for comparisons sake)
+        add     $t0, $s5, $s3       # current cell offset we are checking (board + curr cell)
+        lb      $t0, 0($t0)         # actual value
+        beq     $t0, $zero, guess_val# if unseen grass tile, try value
+        addi    $a0, $s5, 1         # incement a0
+        jal guess
+        j guess_done
+
+    guess_val:
+        li      $t8, 1              # check if true
+        move    $a0, $s5            # set current cell for check
+        move    $a1, $s6            # a TENT or some GRASS in an argument
+        jal     check               # check if cell is valid
+        beq     $v0, $t8, valid     # go to valid if it works, otherwise, FAIL
+        j failed_guess
+    valid:
+        add     $t0, $s5, $s3       # current cell offset we are checking (board + curr cell)
+        sb      $s6, 0($t0)         # store TENT or grass at location
+        addi    $a0, $s5, 1         # increment a0
+        jal     guess               # recurse!
+        beq     $v0, $t8, guess_done# if 1, return guess!
+
+    failed_guess:
+        addi    $s6, $s6, -1        # turn tent -> grass (can grass turn to Ugrass?)
+        beq     $s6, $s7, guess_val # if grass (1), try guess_val again
+        li      $v0, 0              # return false (0) if failure
+        j guess_done
+
+    fin_guess:
+        li      $v0, 1              # woot! true
+
+    guess_done:
+        lw      $ra, -4+FRAMESIZE($sp)
+        lw      $s7, 28($sp)
+        lw      $s6, 24($sp)
+        lw      $s5, 20($sp)
+        lw      $s4, 16($sp)
+        lw      $s3, 12($sp)
+        lw      $s2, 8($sp)
+        lw      $s1, 4($sp)
+        lw      $s0, 0($sp)
+        addi    $sp, $sp, FRAMESIZE
+        jr      $ra
+
+
+check:
+    #return 1 in v0 if tent in a0
+    #return 0 if tent does not work
+        addi    $sp, $sp, -FRAMESIZE
+        sw      $ra, -4+FRAMESIZE($sp)
+        sw      $s7, 28($sp)
+        sw      $s6, 24($sp)
+        sw      $s5, 20($sp)
+        sw      $s4, 16($sp)
+        sw      $s3, 12($sp)
+        sw      $s2, 8($sp)
+        sw      $s1, 4($sp)
+        sw      $s0, 0($sp)
+
+        ### load all necessary values ###
+        la      $s0, size           # load address of boardsize
+        lb      $s0, 0($s0)         # load boardsize form address
+        la      $s1, rows           # load first row sum in s1
+        la      $s2, cols           # load first col sum in s2
+        la      $s3, board          # load board in s3
+        la      $s4, tree           # load address of tree
+        lb      $s4, 0($s4)         # load tree in s4
+
+        move    $s5, $a0            # store offset in s5
+        move    $s6, $a1            # store TENT or GRASS in s6
+
+        break   # [DEBUG]
+
+        lw      $ra, -4+FRAMESIZE($sp)
+        lw      $s7, 28($sp)
+        lw      $s6, 24($sp)
+        lw      $s5, 20($sp)
+        lw      $s4, 16($sp)
+        lw      $s3, 12($sp)
+        lw      $s2, 8($sp)
+        lw      $s1, 4($sp)
+        lw      $s0, 0($sp)
+        addi    $sp, $sp, FRAMESIZE
+        jr      $ra
 
 print_board:
         addi    $sp, $sp, -FRAMESIZE
@@ -120,6 +245,8 @@ print_board:
 
         lb      $t4, 0($t3)         # load object at t3 into t4
         li      $t5, GRASS
+        beq     $t4, $t5, print_grass # if 0, print grass
+        li      $t5, UGRASS
         beq     $t4, $t5, print_grass # if 0, print grass
         li      $t5, TREE
         beq     $t4, $t5, print_tree # if 0, print tree
@@ -335,7 +462,7 @@ read_board:
 
 exit:
     move    $a0, $s0              # Store return code in $a0
-    li      $v0, 10               # load exit2 syscall number in $v0
+    li      $v0, 10               # load syscall number in $v0
     syscall                       # Execute the syscall
 
 
