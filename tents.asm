@@ -79,9 +79,29 @@ print_board:
         la      $s1, rows           # load first row sum in s1
         la      $s2, cols           # load first col sum in s2
         la      $s3, board          # load board in s3
-        li      $v0, 4              # only print values
+        li      $v0, 4              # only print strings values
 
-        ### for each row, for each col ###
+        ### print out top border ###
+        li      $t0, 0              # incrementor 
+        la  $a0, str_corner         # print +
+        syscall
+        la  $a0, str_floor          # print -
+        syscall
+    for_top:
+        beq     $t0, $s0, done_top  # if t0 is the size of board, finish off top
+        addi    $t0, $t0, 1         # increment 
+        la      $a0, str_floor      # print -
+        syscall
+        la      $a0, str_floor      # print -
+        syscall
+        j for_top
+    done_top:
+        la  $a0, str_corner         # print +
+        syscall
+        la  $a0, str_newline        # print \n
+        syscall
+
+        ### for each row, for each col: print vals###
         li      $t0, 0              # count rows
     for_row:
         li      $t1, 0              # count cols
@@ -107,31 +127,84 @@ print_board:
         beq     $t4, $t5, print_tent # if 0, print tent
 
     print_grass:
-        la  $a0, str_grass          # print .
-        j actual_print
+        la      $a0, str_grass      # print .
+        j       actual_print
     print_tree:
-        la  $a0, str_tree           # print T 
-        j actual_print
+        la      $a0, str_tree       # print T 
+        j       actual_print
     print_tent:
-        la  $a0, str_tent           # print A
-        j actual_print
+        la      $a0, str_tent       # print A
+        j       actual_print
     actual_print:
         syscall
-        la  $a0, str_space          # print " "
+        la      $a0, str_space      # print " "
         syscall
 
         addi    $t1, $t1, 1         # increment col counter
-        j for_col
+        j       for_col
 
     finish_row:
-        la  $a0, str_border         # print |
+        la      $a0, str_border     # print |
         syscall
-        la  $a0, str_newline        # print \n
+        la      $a0, str_space      # print " "
+        syscall
+        add     $t6, $t0, $s1       # add row num to address
+        lb      $t6, 0($t6)         # get value
+        li      $v0, 1              # change v0 to 1 for this integer printout
+        add     $a0, $t6, $zero     # put t6 in a0 a lazy way
+        syscall
+        li      $v0, 4              # change v0 back to 4
+
+        la      $a0, str_newline    # print \n
         syscall
         addi    $t0, $t0, 1
         j for_row
 
     done_rows:
+
+        ### print out bottom border ###
+        li      $t0, 0              # incrementor 
+        la  $a0, str_corner         # print +
+        syscall
+        la  $a0, str_floor          # print -
+        syscall
+    for_bot:
+        beq     $t0, $s0, done_bot  # if t0 is the size of board, finish off top
+        addi    $t0, $t0, 1         # increment 
+        la      $a0, str_floor      # print -
+        syscall
+        la      $a0, str_floor      # print -
+        syscall
+        j for_bot
+    done_bot:
+        la  $a0, str_corner         # print +
+        syscall
+        la  $a0, str_newline        # print \n
+        syscall
+
+    ### Print out column sums ###
+        la      $a0, str_space      # print " "
+        syscall
+        la      $a0, str_space      # print " "
+        syscall
+        li      $t1, 0              # counter for cols
+    val_loop:
+        beq     $s0, $t1, done_vals # if t1 counter reaches board size, be done
+        add     $t3, $s2, $t1       # get new mem address pointing at col
+        lb      $t2, 0($t3)         # load byte from said address
+        li      $v0, 1              # change v0 to 1 for this integer printout
+        add     $a0, $t2, $zero     # put t2 in a0 a lazy way
+        syscall
+        li      $v0, 4              # change v0 back to 4
+        la      $a0, str_space      # print " "
+        syscall
+        addi    $t1, $t1, 1         # increment counter and mempointer
+        j val_loop
+    done_vals:
+        la      $a0, str_newline    # print \n
+        syscall
+
+
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
