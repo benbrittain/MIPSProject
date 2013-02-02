@@ -42,8 +42,8 @@ rows:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 cols:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 tree:   .byte 0
-trees:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-#              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+trees:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 str_space:  .asciiz " "
 str_grass:  .asciiz "."
 str_tree:   .asciiz "T"
@@ -108,6 +108,7 @@ guess:
         la      $s4, tree               # load address of tree
         lb      $s4, 0($s4)             # load tree in s4
         la      $s5, trees              # load address of trees
+        #break                           # [DEBUG, PRINT OUT TREES]
 
         # a0 is the current tree we are testing 0 - $s4
         move    $s6, $a0                # tree is now in $s5
@@ -115,7 +116,7 @@ guess:
 
         li      $s1, 4                  # store possible tree position
         add     $t0, $s5, $s6           # get tree byte
-        lb      $t0, 0($t0)             # get current tree value
+        lb      $t0, 0($t0)             # get current tree alue
         beq     $zero, $t0, guess_loop  # guess loop
         addi    $a0, $s6, 1             # try next tree
         jal     guess                   # recurse to next tree cell
@@ -139,7 +140,6 @@ guess:
         j       guess_loop              # otherwise, try guessing again in new position
     nothing_work:
         add     $t0, $s5, $s6           # get tree byte
-        lb      $t0, 0($t0)             # get current tree value
         sb      $zero, 0($t0)           # clear out num
         li      $v0, 0                  # return failure
         j guess_fin                     # finish up, skip over good
@@ -187,6 +187,10 @@ check:
         # go though all rows, sum, check that it is not more than respective row sum
         # go though all cols, sum, check that it is not more than respective col sum
 
+	li 	$v0, 5                  # read in board size
+	syscall
+
+#        li      $v0, 0
     #[CHECK YOU ARN"T USING ANY Tx that GET REWRITTEN WITH CHECK!!!]
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
