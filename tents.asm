@@ -2,10 +2,13 @@
 
 #constants
 FRAMESIZE = 40
-UGRASS  = 0
-GRASS   = 1
-TREE    = 3 
+GRASS  = 0
+TREE    = 1
 TENT    = 2
+NORTH = 1
+EAST = 2
+SOUTH = 3
+WEST = 4
 
         .data
         .align 2
@@ -64,9 +67,17 @@ main:
         jal     read_board              # function call to read in board from file
         jal     print_board             # function call to pretty-print board
         move    $a0, $zero              # what cell are we on?
-        jal     guess                   # function call to brute-force algorithm
 
-        jal     print_board             # [TESTING]
+
+
+        li      $a0, 4                  # position 4
+        li      $a1, 0                  # tree 0
+        jal     check                   #[DEBUG]
+
+
+#        jal     guess                   # function call to brute-force algorithm
+#
+#        jal     print_board             # [TESTING]
 ### WORKS, JUST NEED REMOVED FOR TESTING ###
 #        move    $s0, $v0                # what does guess return?
 #        beq     $s0, $zero, fail        # if 0, then no solution
@@ -160,6 +171,67 @@ guess:
         addi    $sp, $sp, FRAMESIZE
         jr      $ra
 
+#        jal     treeplacement       # call new function
+#                                    # arguments, a0 is board offset, a1 is direction
+#                                    # if v0 is 1, then tree fits and should be placed at v1
+#                                    # otherwise, skip v0 becomes 0 and end check
+#
+treeplacement:
+    #return 1 in v0 if tent in a0
+    #return 0 if tent does not work
+        addi    $sp, $sp, -FRAMESIZE
+        sw      $ra, -4+FRAMESIZE($sp)
+        sw      $s7, 28($sp)
+        sw      $s6, 24($sp)
+        sw      $s5, 20($sp)
+        sw      $s4, 16($sp)
+        sw      $s3, 12($sp)
+        sw      $s2, 8($sp)
+        sw      $s1, 4($sp)
+        sw      $s0, 0($sp)
+
+        ### load all necessary values ###
+        la      $s0, size           # load address of boardsize
+        lb      $s0, 0($s0)         # load boardsize form address
+        la      $s1, board          # load board in s3
+        la      $s2, trees          # load address of trees
+
+        move    $s3, $a0            # board offset location of tree
+        move    $s4, $a1            # direction TENT is being placed
+
+        li      $t1, NORTH
+        beq     $t1, $s4, north     # if t1 and s4 are the same, NORT
+        li      $t1, SOUTH 
+        beq     $t1, $s4, south     # if t1 and s4 are the same, NORT
+        li      $t1, EAST 
+        beq     $t1, $s4, east      # if t1 and s4 are the same, NORT
+        li      $t1, WEST 
+        beq     $t1, $s4, west      # if t1 and s4 are the same, NORT
+    north:
+        j donedirection
+    south:
+        j donedirection
+    east:
+        j donedirection
+    west:
+        j donedirection
+
+
+    no_placement:
+        li      $v0, 0              # set v0 to be false
+
+    donedirection:
+        lw      $ra, -4+FRAMESIZE($sp)
+        lw      $s7, 28($sp)
+        lw      $s6, 24($sp)
+        lw      $s5, 20($sp)
+        lw      $s4, 16($sp)
+        lw      $s3, 12($sp)
+        lw      $s2, 8($sp)
+        lw      $s1, 4($sp)
+        lw      $s0, 0($sp)
+        addi    $sp, $sp, FRAMESIZE
+        jr      $ra
 
 check:
     #return 1 in v0 if tent in a0
@@ -183,15 +255,86 @@ check:
         la      $s3, board          # load board in s3
         la      $s4, tree           # load address of tree
         lb      $s4, 0($s4)         # load tree in s4
+        la      $s5, trees          # load address of tree
 
-        # go though all rows, sum, check that it is not more than respective row sum
-        # go though all cols, sum, check that it is not more than respective col sum
 
-	li 	$v0, 5                  # read in board size
-	syscall
+        move    $s6, $a0            #tree direction
+        move    $s7, $a1            # which tree number
 
-#        li      $v0, 0
-    #[CHECK YOU ARN"T USING ANY Tx that GET REWRITTEN WITH CHECK!!!]
+        # iterate through board.
+        # if it is not a tree set it to zero
+
+        li      $t0, 0              # counter for board iteration
+        mul     $t4, $s0, $s0       # get board size
+    clear_board:
+        beq     $t0, $t4, done_clear# t0 is max size, board is empty
+        add     $t1, $t0, $s3       # get address of cell
+        lb      $t3, 0($t1)         # put get value of cell
+        li      $t2, TREE           # put TREE in t2
+        beq     $t3, $t2, skip_clear# if t3 is a TREE don't clear otherwise...
+        sb      $zero, 0($t1)       # clear cell 
+    skip_clear:
+        addi    $t0, $t0, 1         #increment
+        j clear_board
+    done_clear:
+
+        break
+
+        li      $t0, 0              # counter for board iteration
+        mul     $t4, $s0, $s0       # get board size
+        li      $t5, 0              # tree count!
+    iter_board:
+        beq     $t0, $t4, iter_done # t0 is max size, all cells have been visited
+        add     $t1, $t0, $s3       # get address of cell
+        lb      $t3, 0($t1)         # put get value of cell
+        li      $t2, TREE           # put TREE in t2
+        beq     $t3, $t2, treepres  # if t3 is a TREE don't clear otherwise...
+        j       notatree            # no trees here sir
+    treepres:
+        ### what to do if we are currently looking at a tree ###
+        beq     $t5, $s7, newtree   # this is the newly placed tree
+        j       oldtree             # go to oldtree if not true
+    newtree:  
+        move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
+        move    $a1, $s6            # store tree direction in a1.
+        jal     treeplacement       # call new function
+                                    # arguments, a0 is board offset, a1 is direction
+                                    # if v0 is 1, then tree fits and should be placed at v1
+                                    # otherwise, skip v0 becomes 0 and end check
+    oldtree:
+        move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
+        add     $t6, $s5, $t5       # add t5 (the tree count) to the location of trees
+        lb      $t6, 0($t6)         # load what should be in trees at this byte
+        move    $a1, $t6            # put direction in treeplacement
+        jal     treeplacement       # call new function to place a tree in memory
+                                    # if v0 is 1, then tree fits and should be placed at v1
+                                    # otherwise, skip v0 becomes 0 and end check
+
+        addi    $t5, $t5, 1         # next tree please
+    notatree:
+        addi    $t0, $t0, 1         # increment
+        j iter_board                # move on to next cell
+    iter_done:
+        # iterate through board again
+        # if there is a tree
+        # grab position from trees
+        # count the tree
+        # some long block about checking if it is with board and not on another tree
+            # if any of those return false
+        # otherwise, add it to the board at the position of the tree
+
+
+        #go through every row
+        # sum up values
+        # if it is greater than the row sum, return false
+
+        #go through every col
+        # sum up values
+        # if it is greater than the col sum, return false
+
+        #OTHERWISE
+        li      $v0, 1          # return true
+
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
@@ -264,7 +407,6 @@ print_board:
         lb      $t4, 0($t3)         # load object at t3 into t4
         li      $t5, GRASS
         beq     $t4, $t5, print_grass # if 0, print grass
-        li      $t5, UGRASS
         beq     $t4, $t5, print_grass # if 0, print grass
         li      $t5, TREE
         beq     $t4, $t5, print_tree # if 0, print tree
