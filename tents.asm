@@ -70,16 +70,16 @@ main:
 
 
 
-        li      $a0, 2                  # tree 1
-        li      $a1, 4                  # position 2 now 3 now 1 now 4
-        jal     treeplacement           #[DEBUG]
-        la      $s3, board              # load board in s3
+#        li      $a0, 2                  # tree 1
+#        li      $a1, 4                  # position 2 now 3 now 1 now 4
+#        jal     treeplacement           #[DEBUG]
+#        la      $s3, board              # load board in s3
+#        break
+        li      $a0, 3                  # position 4
+        li      $a1, 1                  # tree 0
+        jal     check                   #[DEBUG]
+
         break
-#        li      $a0, 4                  # position 4
-#        li      $a1, 0                  # tree 0
-#        jal     check                   #[DEBUG]
-
-
 #        jal     guess                   # function call to brute-force algorithm
 #
         jal     print_board             # [TESTING]
@@ -212,7 +212,6 @@ treeplacement:
         li      $t1, WEST 
         beq     $t1, $s4, west      # if t1 and s4 are the same, WEST
     north:
-        break
         li      $t1, -1             # negate
         mul     $t1, $s0, $t1       # multiply -1 times board size
         add     $t1, $s3, $t1       # location TENT would be placed ( - offset + board size for previous row)
@@ -336,8 +335,6 @@ check:
         j clear_board
     done_clear:
 
-        break
-
         li      $t0, 0              # counter for board iteration
         mul     $t4, $s0, $s0       # get board size
         li      $t5, 0              # tree count!
@@ -346,28 +343,32 @@ check:
         add     $t1, $t0, $s3       # get address of cell
         lb      $t3, 0($t1)         # put get value of cell
         li      $t2, TREE           # put TREE in t2
-        beq     $t3, $t2, treepres  # if t3 is a TREE don't clear otherwise...
+        beq     $t3, $t2, treepres  # if t3 is a TREE go to treepress
         j       notatree            # no trees here sir
     treepres:
-        ### what to do if we are currently looking at a tree ###
+#        ### what to do if we are currently looking at a tree ###
         beq     $t5, $s7, newtree   # this is the newly placed tree
         j       oldtree             # go to oldtree if not true
     newtree:  
+        #break
         move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
         move    $a1, $s6            # store tree direction in a1.
         jal     treeplacement       # call new function
-                                    # arguments, a0 is board offset, a1 is direction
-                                    # if v0 is 1, then tree fits and should be placed at v1
-                                    # otherwise, skip v0 becomes 0 and end check
+#                                    # arguments, a0 is board offset, a1 is direction
+#                                    # if v0 is 1, then fits
+#                                    # otherwise, skip v0 becomes 0 and end check
+        j skip_oldtree
     oldtree:
         move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
         add     $t6, $s5, $t5       # add t5 (the tree count) to the location of trees
         lb      $t6, 0($t6)         # load what should be in trees at this byte
+        beq     $t6, $zero, skip_oldtree
         move    $a1, $t6            # put direction in treeplacement
         jal     treeplacement       # call new function to place a tree in memory
-                                    # if v0 is 1, then tree fits and should be placed at v1
-                                    # otherwise, skip v0 becomes 0 and end check
-
+#                                    # if v0 is 1, then tree fits and should be placed at v1
+#                                    # otherwise, skip v0 becomes 0 and end check
+#
+    skip_oldtree:
         addi    $t5, $t5, 1         # next tree please
     notatree:
         addi    $t0, $t0, 1         # increment
