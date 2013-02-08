@@ -75,24 +75,24 @@ main:
 #        jal     treeplacement           #[DEBUG]
 #        la      $s3, board              # load board in s3
 #        break
-        li      $a0, 3                  # position 4
-        li      $a1, 1                  # tree 0
-        jal     check                   #[DEBUG]
+#        li      $a0, 4                  # position 4
+#        li      $a1, 0                  # tree 0
+#        jal     check                   #[DEBUG]
 
         break
-#        jal     guess                   # function call to brute-force algorithm
-#
-        jal     print_board             # [TESTING]
-### WORKS, JUST NEED REMOVED FOR TESTING ###
-#        move    $s0, $v0                # what does guess return?
-#        beq     $s0, $zero, fail        # if 0, then no solution
-#        jal     print_board             # function call to pretty-print board
-#        j valid_board
-#    fail:
-#        li      $v0, 4                  # only print strings values
-#        la      $a0, str_imposibru      # print "Impossible Puzzle"
-#        syscall
-#         
+        jal     guess                   # function call to brute-force algorithm
+
+#       jal     print_board             # [TESTING]
+# WORKS, JUST NEED REMOVED FOR TESTING ###
+        move    $s0, $v0                # what does guess return?
+        beq     $s0, $zero, fail        # if 0, then no solution
+        jal     print_board             # function call to pretty-print board
+        j valid_board
+    fail:
+        li      $v0, 4                  # only print strings values
+        la      $a0, str_imposibru      # print "Impossible Puzzle"
+        syscall
+         
     valid_board:
         j       exit                    # end the program
 
@@ -244,6 +244,9 @@ treeplacement:
         j donedirection
     east:
         addi    $t1, $s3, 1         # location TENT would be placed
+        mul     $t2, $s0, $s0       # max board size
+        slt     $t3, $t1, $t2       # is the tente off the board on the right?
+        beq     $t3, $zero, no_placement# if t1 is not less than board size, no placement
         div     $t1, $s0            # divide TENT location by board dim
         mfhi    $t3                 # col index
         beq     $t3, $zero, no_placement # if in col 0, overflowed to next line. BAD
@@ -258,6 +261,10 @@ treeplacement:
         j donedirection
     west:
         addi    $t1, $s3, -1        # location TENT would be placed
+        slti    $t3, $t1, 0         # is the tente off the board on the left?
+        beq     $t3, $zero, westalong# if on board, westalong
+        j       no_placement
+    westalong:
         div     $t1, $s0            # divide TENT location by board dim
         mfhi    $t3                 # col index
         addi    $t2, $s0, -1        # size of column
@@ -335,6 +342,7 @@ check:
         j clear_board
     done_clear:
 
+
         li      $t0, 0              # counter for board iteration
         mul     $t4, $s0, $s0       # get board size
         li      $t5, 0              # tree count!
@@ -350,14 +358,11 @@ check:
         beq     $t5, $s7, newtree   # this is the newly placed tree
         j       oldtree             # go to oldtree if not true
     newtree:  
-        #break
         move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
         move    $a1, $s6            # store tree direction in a1.
         jal     treeplacement       # call new function
-#                                    # arguments, a0 is board offset, a1 is direction
-#                                    # if v0 is 1, then fits
-#                                    # otherwise, skip v0 becomes 0 and end check
-        j skip_oldtree
+        beq     $v0, $zero, fail_check # DID NOT FIT
+        j       skip_oldtree
     oldtree:
         move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
         add     $t6, $s5, $t5       # add t5 (the tree count) to the location of trees
@@ -365,35 +370,27 @@ check:
         beq     $t6, $zero, skip_oldtree
         move    $a1, $t6            # put direction in treeplacement
         jal     treeplacement       # call new function to place a tree in memory
-#                                    # if v0 is 1, then tree fits and should be placed at v1
-#                                    # otherwise, skip v0 becomes 0 and end check
-#
     skip_oldtree:
         addi    $t5, $t5, 1         # next tree please
     notatree:
         addi    $t0, $t0, 1         # increment
-        j iter_board                # move on to next cell
+        j       iter_board          # move on to next cell
     iter_done:
-        # iterate through board again
-        # if there is a tree
-        # grab position from trees
-        # count the tree
-        # some long block about checking if it is with board and not on another tree
-            # if any of those return false
-        # otherwise, add it to the board at the position of the tree
 
-
-        #go through every row
+        # go through current row
         # sum up values
         # if it is greater than the row sum, return false
 
-        #go through every col
+        # go through currunt col
         # sum up values
         # if it is greater than the col sum, return false
 
         #OTHERWISE
         li      $v0, 1          # return true
-
+        j       pass_check
+    fail_check:
+        li      $v0, 0          # return false
+    pass_check:
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
