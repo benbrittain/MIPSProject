@@ -14,16 +14,16 @@ WEST = 4
         .align 2
 
 error_board_size:   
-        .asciiz "Invalid board size, Tents terminating\n"
+        .asciiz "\nInvalid board size, Tents terminating\n"
 
 error_sum_str:
-        .asciiz "Illegal sum value, Tents terminating\n"
+        .asciiz "\nIllegal sum value, Tents terminating\n"
 
 error_tree_str:
-        .asciiz "Illegal number of trees, Tents terminating\n"
+        .asciiz "\nIllegal number of trees, Tents terminating\n"
 
 error_loc_str:
-        .asciiz "Illegal tree location, Tents terminating\n"
+        .asciiz "\nIllegal tree location, Tents terminating\n"
 
         .align 2
 
@@ -54,11 +54,11 @@ str_tent:   .asciiz "A"
 str_floor:  .asciiz "-"
 str_border: .asciiz "|"
 str_corner: .asciiz "+"
-str_banner: .asciiz "******************\n**     TENTS    **\n******************\n"
+str_banner: .asciiz "\n******************\n**     TENTS    **\n******************\n"
 str_newline:.asciiz "\n"
-str_imposibru: .asciiz "Impossible Puzzle\n"
+str_imposibru: .asciiz "\nImpossible Puzzle\n\n"
 str_init: .asciiz "\nInitial Puzzle\n\n"
-str_final: .asciiz "\nFinal Puzzle\n\n"
+str_final: .asciiz "\nFinal Puzzle\n"
 
         .text				# this is program code
         .align	4			# code must be on word boundaries
@@ -67,11 +67,11 @@ str_final: .asciiz "\nFinal Puzzle\n\n"
 
 main:
 
-        jal     read_board              # function call to read in board from file
-
         li      $v0, 4                  # only print strings values
         la      $a0, str_banner         # print *TENT*
         syscall
+        jal     read_board              # function call to read in board from file
+
 
         li      $v0, 4                  # only print strings values
         la      $a0, str_init           # print Initial Puzzle
@@ -88,13 +88,20 @@ main:
         li      $v0, 4                  # only print strings values
         la      $a0, str_final           # print Initial Puzzle
         syscall
+        li      $v0, 4                  # only print strings values
+        la      $a0, str_newline           # print Initial Puzzle
+        syscall
 
         jal     print_board             # function call to pretty-print board
+        li      $v0, 4                  # only print strings values
+        la      $a0, str_newline           # print Initial Puzzle
+        syscall
         j valid_board
     fail:
         li      $v0, 4                  # only print strings values
         la      $a0, str_imposibru      # print "Impossible Puzzle"
         syscall
+
          
     valid_board:
         j       exit                    # end the program
@@ -652,19 +659,18 @@ print_board:
     ### Print out column sums ###
         la      $a0, str_space      # print " "
         syscall
-        la      $a0, str_space      # print " "
-        syscall
         li      $t1, 0              # counter for cols
     val_loop:
         beq     $s0, $t1, done_vals # if t1 counter reaches board size, be done
         add     $t3, $s2, $t1       # get new mem address pointing at col
         lb      $t2, 0($t3)         # load byte from said address
+        li      $v0, 4              # change v0 back to 4
+        la      $a0, str_space      # print " "
+        syscall
         li      $v0, 1              # change v0 to 1 for this integer printout
         add     $a0, $t2, $zero     # put t2 in a0 a lazy way
         syscall
         li      $v0, 4              # change v0 back to 4
-        la      $a0, str_space      # print " "
-        syscall
         addi    $t1, $t1, 1         # increment counter and mempointer
         j val_loop
     done_vals:
