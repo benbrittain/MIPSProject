@@ -1,17 +1,29 @@
-# Author: Ben Brittain
+# File:         tents.asm
+# Author:       Ben Brittain
+#
+# Description:  Written for Comp Org Project
+#               Takes in a file that represents an unsolved tents game
+#               solves the game from a tree perspective blazingly fast
+#                prints output
 
-#constants
-FRAMESIZE = 40
-GRASS  = 0
-TREE    = 1
-TENT    = 2
-NORTH = 1
-EAST = 2
-SOUTH = 3
-WEST = 4
+# Constants for various uses. Mostly for readability of code
+#
+FRAMESIZE       = 40            # How much to push the stack pointer
+
+GRASS           = 0             # The board representation of grass
+TREE            = 1             # The board representation of Trees
+TENT            = 2             # The board representation of Tents
+
+NORTH           = 1             # Represents North in the Tree Data Structure
+EAST            = 2             # Represents East in the Tree Data Structure
+SOUTH           = 3             # Represents South in the Tree Data Structure
+WEST            = 4             # Represents West in the Tree Data Structure
 
         .data
         .align 2
+
+# Error Messages that are displayed by the program during errors
+#
 
 error_board_size:   
         .asciiz "\nInvalid board size, Tents terminating\n"
@@ -27,6 +39,9 @@ error_loc_str:
 
         .align 2
 
+# Various global Data Structures manipulated by the program
+#
+
 board:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -40,14 +55,16 @@ board:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-size:   .byte 0
-rows:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-cols:   .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+size:   .byte 0             # stores the size of the rows/col
+rows:   .byte 0:12          # stores 12 possible values for row sums
+cols:   .byte 0:12          # stores 12 possible values for col sums
+tree:   .byte 0             # stores how many trees there are
+trees:  .byte 0:40          # stores 40 possible tree orientations
 
-tree:   .byte 0
+# Strings that are used for printing the board
+#
 
-trees:  .byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-str_space:  .asciiz " "
+str_space:  .asciiz " "     
 str_grass:  .asciiz "."
 str_tree:   .asciiz "T"
 str_tent:   .asciiz "A"
@@ -60,51 +77,58 @@ str_imposibru: .asciiz "\nImpossible Puzzle\n\n"
 str_init: .asciiz "\nInitial Puzzle\n\n"
 str_final: .asciiz "\nFinal Puzzle\n"
 
-        .text				# this is program code
-        .align	4			# code must be on word boundaries
-        .globl	main			# main is a global label
-
+        .text				    # this is program code
+        .align	4			    # code must be on word boundaries
+        .globl	main			    # main is a global label
 
 main:
-
-        li      $v0, 4                  # only print strings values
-        la      $a0, str_banner         # print *TENT*
+        li      $v0, 4                      # only print strings values
+        la      $a0, str_banner             # print *TENT*
         syscall
-        jal     read_board              # function call to read in board from file
-
-
-        li      $v0, 4                  # only print strings values
-        la      $a0, str_init           # print Initial Puzzle
+        jal     read_board                  # function call to read in board from file
+        li      $v0, 4                      # only print strings values
+        la      $a0, str_init               # print Initial Puzzle
         syscall
-
-        jal     print_board             # function call to pretty-print board
-        move    $a0, $zero              # what cell are we on?
-
-        jal     guess                   # function call to brute-force algorithm
-
-        move    $s0, $v0                # what does guess return?
-        beq     $s0, $zero, fail        # if 0, then no solution
-
-        li      $v0, 4                  # only print strings values
-        la      $a0, str_final           # print Initial Puzzle
+        jal     print_board                 # function call to pretty-print board
+        move    $a0, $zero                  # what cell are we on?
+        jal     guess                       # function call to brute-force algorithm
+        move    $s0, $v0                    # what does guess return?
+        beq     $s0, $zero, fail            # if 0, then no solution
+        li      $v0, 4                      # only print strings values
+        la      $a0, str_final              # print Initial Puzzle
         syscall
-        li      $v0, 4                  # only print strings values
-        la      $a0, str_newline           # print Initial Puzzle
+        li      $v0, 4                      # only print strings values
+        la      $a0, str_newline            # print Initial Puzzle
         syscall
-
-        jal     print_board             # function call to pretty-print board
-        li      $v0, 4                  # only print strings values
-        la      $a0, str_newline           # print Initial Puzzle
+        jal     print_board                 # function call to pretty-print board
+        li      $v0, 4                      # only print strings values
+        la      $a0, str_newline            # print Initial Puzzle
         syscall
         j valid_board
-    fail:
-        li      $v0, 4                  # only print strings values
-        la      $a0, str_imposibru      # print "Impossible Puzzle"
+fail:
+        li      $v0, 4                      # only print strings values
+        la      $a0, str_imposibru          # print "Impossible Puzzle"
         syscall
+valid_board:
+        j       exit                        # end the program
 
-         
-    valid_board:
-        j       exit                    # end the program
+
+# Name: Guess
+# Main code for recursivly guessing various tree orientations
+# takes $a0 as the current tree that is being guessed
+# returns a 0 or 1 in $v0 to represent success or failure respectivly
+#
+# Ascii representation of what the various orientations mean. 
+# Also declared as Cardinal Direction constants at beginning of program
+#        ################
+#        #              #
+#        #      1       #
+#        #    4 T 2     #
+#        #      3       #
+#        #              #
+#        #   0 = notyet #
+#        ################
+#
 
 guess:
         addi    $sp, $sp, -FRAMESIZE
@@ -118,16 +142,7 @@ guess:
         sw      $s1, 4($sp)
         sw      $s0, 0($sp)
 
-        ################
-        #              #
-        #      1       #
-        #    4 T 2     #
-        #      3       #
-        #              #
-        #   0 = notyet #
-        ################
-
-        ### load all necessary values ###
+        # load all necessary values
         la      $s0, size               # load address of boardsize
         lb      $s0, 0($s0)             # load boardsize form address
         la      $s3, board              # load board in s3
@@ -135,7 +150,7 @@ guess:
         lb      $s4, 0($s4)             # load tree in s4
         la      $s5, trees              # load address of trees
 
-#        # a0 is the current tree we are testing 0 - $s4
+        # a0 is the current tree we are testing 0 - $s4
         move    $s6, $a0                # tree is now in $s5
         beq     $s6, $s4, guess_good    # if we are on the last tree (maybe +1?), your done
         li      $s1, 4                  # store possible tree position
@@ -146,7 +161,7 @@ guess:
         jal     guess                   # recurse to next tree cell
         j       guess_fin               # return value returned by guess
 
-    guess_loop:
+guess_loop:
         move    $a0, $s1                # pass tree-position as argument
         move    $a1, $s6                # pass tree number as argument (top left to bottom right)
         jal     check                   # check that position is valid and the board still works
@@ -158,20 +173,18 @@ guess:
         li      $t1, 1                  # put 1 into t1
         beq     $v0, $t1, guess_fin     # if guess returns one, finish up!
 
-    guess_bad:
+guess_bad:
         addi    $s1, $s1, -1            # decrement position guess [maybe need to take in board consideration]
         beq     $s1, $zero, nothing_work# if s1 reaches 0, then nothing works and FAIL
         j       guess_loop              # otherwise, try guessing again in new position
-    nothing_work:
+nothing_work:
         add     $t0, $s5, $s6           # get tree byte
         sb      $zero, 0($t0)           # clear out num
         li      $v0, 0                  # return failure
         j guess_fin                     # finish up, skip over good
-
-    guess_good:
+guess_good:
         li      $v0, 1
-        
-    guess_fin:
+guess_fin:
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
@@ -184,11 +197,13 @@ guess:
         addi    $sp, $sp, FRAMESIZE
         jr      $ra
 
-#        jal     treeplacement       # call new function
-#                                    # arguments, a0 is board offset, a1 is direction
-#                                    # if v0 is 1, then tree fits and should be placed at v1
-#                                    # otherwise, skip v0 becomes 0 and end check
+# Name: TreePlacement
+# Function responsible for placing trees in actual board.
+# takes tree number 
+# returns a 1 in $v0 if tent fits, otherwise a 0
+# as arguments takes tree location in $s1 and the direction in $s4
 #
+
 treeplacement:
     #return 1 in v0 if tent in a0
     #return 0 if tent does not work
@@ -204,100 +219,100 @@ treeplacement:
         sw      $s0, 0($sp)
 
         ### load all necessary values ###
-        la      $s0, size           # load address of boardsize
-        lb      $s0, 0($s0)         # load boardsize form address
-        la      $s1, board          # load board in s3
-        la      $s2, trees          # load address of trees
+        la      $s0, size               # load address of boardsize
+        lb      $s0, 0($s0)             # load boardsize form address
+        la      $s1, board              # load board in s3
+        la      $s2, trees              # load address of trees
 
-        move    $s3, $a0            # board offset location of tree
-        move    $s4, $a1            # direction TENT is being placed
+        move    $s3, $a0                # board offset location of tree
+        move    $s4, $a1                # direction TENT is being placed
 
         li      $t1, NORTH
-        beq     $t1, $s4, north     # if t1 and s4 are the same, NORTH
+        beq     $t1, $s4, north         # if t1 and s4 are the same, NORTH
         li      $t1, SOUTH 
-        beq     $t1, $s4, south     # if t1 and s4 are the same, SOUTH
+        beq     $t1, $s4, south         # if t1 and s4 are the same, SOUTH
         li      $t1, EAST 
-        beq     $t1, $s4, east      # if t1 and s4 are the same, EAST
+        beq     $t1, $s4, east          # if t1 and s4 are the same, EAST
         li      $t1, WEST 
-        beq     $t1, $s4, west      # if t1 and s4 are the same, WEST
-    north:
-        li      $t1, -1             # negate
-        mul     $t1, $s0, $t1       # multiply -1 times board size
-        add     $t1, $s3, $t1       # location TENT would be placed ( - offset + board size for previous row)
-        move    $s5, $t1            # store location of tent. later return location in v1
-        slt     $t2, $t1, $zero     # is t1 less than 0?
-        li      $t7, 1              # we need a $one
-        beq     $t2, $t7, no_placement # if it is less than 0, fail!
+        beq     $t1, $s4, west          # if t1 and s4 are the same, WEST
+north:
+        li      $t1, -1                 # negate
+        mul     $t1, $s0, $t1           # multiply -1 times board size
+        add     $t1, $s3, $t1           # location TENT would be placed ( - offset + board size for previous row)
+        move    $s5, $t1                # store location of tent. later return location in v1
+        slt     $t2, $t1, $zero         # is t1 less than 0?
+        li      $t7, 1                  # we need a $one
+        beq     $t2, $t7, no_placement  # if it is less than 0, fail!
 
-        add     $t2, $s1, $t1       # location TENT would be placed ( - offset + board size for previous row)
-        lb      $t3, 0($t2)         # whats at proposed tent spot
+        add     $t2, $s1, $t1           # location TENT would be placed ( - offset + board size for previous row)
+        lb      $t3, 0($t2)             # whats at proposed tent spot
         beq     $t3, $zero, north_empty # spot is empty
         j       no_placement
-    north_empty:
-        li      $t3, TENT           # put a tent in t3
-        sb      $t3, 0($t2)         # store tent in spot on board
+north_empty:
+        li      $t3, TENT               # put a tent in t3
+        sb      $t3, 0($t2)             # store tent in spot on board
         j donedirection
-    south:
-        add     $t1, $s3, $s0       # location TENT would be placed (offset + board size for next row)
-        move    $s5, $t1            # store location of tent. later return location in v1
-        mul     $t2, $s0, $s0       # max board size
-        slt     $t2, $t2, $t1       # is t2 (board size) < new tent location?
-        li      $t7, 1              # we need a $one
-        beq     $t2, $t7, no_placement # if it is overflowed, no placement
-        add     $t1, $s1, $t1       # memory address of tent
-        lb      $t3, 0($t1)         # whats at proposed tent spot
+south:
+        add     $t1, $s3, $s0           # location TENT would be placed (offset + board size for next row)
+        move    $s5, $t1                # store location of tent. later return location in v1
+        mul     $t2, $s0, $s0           # max board size
+        slt     $t2, $t2, $t1           # is t2 (board size) < new tent location?
+        li      $t7, 1                  # we need a $one
+        beq     $t2, $t7, no_placement  # if it is overflowed, no placement
+        add     $t1, $s1, $t1           # memory address of tent
+        lb      $t3, 0($t1)             # whats at proposed tent spot
         beq     $t3, $zero, south_empty # spot is empty
         j       no_placement
-    south_empty:
-        li      $t3, TENT           # put a tent in t3
-        sb      $t3, 0($t1)         # store tent in spot on board
+south_empty:
+        li      $t3, TENT               # put a tent in t3
+        sb      $t3, 0($t1)             # store tent in spot on board
         j donedirection
-    east:
-        addi    $t1, $s3, 1         # location TENT would be placed
-        move    $s5, $t1            # store location of tent. later return location in v1
-        mul     $t2, $s0, $s0       # max board size
-        slt     $t3, $t1, $t2       # is the tente off the board on the right?
+east:
+        addi    $t1, $s3, 1             # location TENT would be placed
+        move    $s5, $t1                # store location of tent. later return location in v1
+        mul     $t2, $s0, $s0           # max board size
+        slt     $t3, $t1, $t2           # is the tente off the board on the right?
         beq     $t3, $zero, no_placement# if t1 is not less than board size, no placement
-        div     $t1, $s0            # divide TENT location by board dim
-        mfhi    $t3                 # col index
-        beq     $t3, $zero, no_placement # if in col 0, overflowed to next line. BAD
-        add     $t2, $s1, $t1       # location of TENT offset on board 
-        lb      $t3, 0($t2)         # whats at proposed tent spot
-        beq     $t3, $zero, east_empty # spot is empty
+        div     $t1, $s0                # divide TENT location by board dim
+        mfhi    $t3                     # col index
+        beq     $t3, $zero, no_placement# if in col 0, overflowed to next line. BAD
+        add     $t2, $s1, $t1           # location of TENT offset on board 
+        lb      $t3, 0($t2)             # whats at proposed tent spot
+        beq     $t3, $zero, east_empty  # spot is empty
         j       no_placement            # if not empty, no placement there
-    east_empty:
-        li      $t3, TENT           # put a tent in t3
-        add     $t2, $s1, $t1       # location of TENT offset on board 
-        sb      $t3, 0($t2)         # store tent in spot on board
+east_empty:
+        li      $t3, TENT               # put a tent in t3
+        add     $t2, $s1, $t1           # location of TENT offset on board 
+        sb      $t3, 0($t2)             # store tent in spot on board
         j donedirection
-    west:
-        addi    $t1, $s3, -1        # location TENT would be placed
-        move    $s5, $t1            # store location of tent. later return location in v1
-        slti    $t3, $t1, 0         # is the tente off the board on the left?
-        beq     $t3, $zero, westalong# if on board, westalong
+west:
+        addi    $t1, $s3, -1            # location TENT would be placed
+        move    $s5, $t1                # store location of tent. later return location in v1
+        slti    $t3, $t1, 0             # is the tente off the board on the left?
+        beq     $t3, $zero, westalong   # if on board, westalong
         j       no_placement
-    westalong:
-        div     $t1, $s0            # divide TENT location by board dim
-        mfhi    $t3                 # col index
-        addi    $t2, $s0, -1        # size of column
-        beq     $t3, $t2, no_placement # if on last column (as in they are equal) then bad placement
-        add     $t2, $s1, $t1       # location of TENT offset on board 
-        lb      $t3, 0($t2)         # whats at proposed tent spot
-        beq     $t3, $zero, west_empty # spot is empty
+westalong:
+        div     $t1, $s0                # divide TENT location by board dim
+        mfhi    $t3                     # col index
+        addi    $t2, $s0, -1            # size of column
+        beq     $t3, $t2, no_placement  # if on last column (as in they are equal) then bad placement
+        add     $t2, $s1, $t1           # location of TENT offset on board 
+        lb      $t3, 0($t2)             # whats at proposed tent spot
+        beq     $t3, $zero, west_empty  # spot is empty
         j       no_placement            # if not empty, no placement there
-    west_empty:
-        li      $t3, TENT           # put a tent in t3
-        add     $t2, $s1, $t1       # location of TENT offset on board 
-        sb      $t3, 0($t2)         # store tent in spot on board
+west_empty:
+        li      $t3, TENT               # put a tent in t3
+        add     $t2, $s1, $t1           # location of TENT offset on board 
+        sb      $t3, 0($t2)             # store tent in spot on board
         j donedirection
-    donedirection:
-        li      $v0, 1              # set v0 to be true!
-        move    $v1, $s5            # return the board offset of the new tent
+donedirection:
+        li      $v0, 1                  # set v0 to be true!
+        move    $v1, $s5                # return the board offset of the new tent
         j end_placement
-    no_placement:
-        li      $v0, 0              # set v0 to be false
+no_placement:
+        li      $v0, 0                  # set v0 to be false
 
-    end_placement:
+end_placement:
         lw      $ra, -4+FRAMESIZE($sp)
         lw      $s7, 28($sp)
         lw      $s6, 24($sp)
