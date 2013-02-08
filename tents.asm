@@ -127,18 +127,11 @@ guess:
 
 #        # a0 is the current tree we are testing 0 - $s4
         move    $s6, $a0                # tree is now in $s5
-
-        
-
         beq     $s6, $s4, guess_good    # if we are on the last tree (maybe +1?), your done
-
-
         li      $s1, 4                  # store possible tree position
         add     $t0, $s5, $s6           # get tree byte
         lb      $t0, 0($t0)             # get current tree alue
         beq     $zero, $t0, guess_loop  # guess loop
-
-
         addi    $a0, $s6, 1             # try next tree
         jal     guess                   # recurse to next tree cell
         j       guess_fin               # return value returned by guess
@@ -427,25 +420,34 @@ check:
         # if it is greater than the row sum, return false
         div     $s6, $s0
         mfhi    $t0                 # col index
-        mflo    $t1                 # row index
 
         li      $t2, 0              # how many values have we looked at
         li      $t5, 0              # running sum of row
     sum_col:
         beq     $t2, $s0, check_col_sum
-        add     $t0, $t0, $s0       # add board size to get next value in col
         add     $t4, $t0, $s3       # get memory address 
         lb      $t4, 0($t4)         # get value at memory address
         li      $t6, TENT           # if there is a tent there...
-        beq     $t4, $t6, add_sum_col
+        beq     $t4, $t6, add_sum_col # if the same, branch and add
         j       next_in_col
     add_sum_col:
         addi    $t5, $t5, 1     
     next_in_col:
         addi    $t2, $t2, 1
+        add     $t0, $t0, $s0       # add board size to get next value in col
         j       sum_col
     check_col_sum:
-        add     $t1, $t1, $s1       #add to get memory address of row sum
+#        add     $t4, $t0, $s3       # get memory address 
+#        lb      $t4, 0($t4)         # get value at memory address
+#        li      $t6, TENT           # if there is a tent there...
+#        beq     $t4, $t6, add_extra# if the same, branch and add
+#        j       no_extra
+#    add_extra:
+#        addi    $t5, $t5, 1
+#    no_extra:
+        div     $s6, $s0
+        mfhi    $t0                 # col index
+        add     $t1, $t0, $s2       #add to get memory address of row sum
         lb      $t1, 0($t1)         #get actual value of row sum
         beq     $t1, $t5, col_fine  # if the are the same, the row is fine
         slt     $t6, $t5, $t1       # if t5 (the running total) is less than t1 (valid sum)
