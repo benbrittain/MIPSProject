@@ -456,7 +456,38 @@ check:
 
         # Check all four corners to see if being placed next to another tent
 
-        #OTHERWISE
+        # s6 has board offset!
+
+        addi    $t1, $s6, 1     # check East Position
+        mul     $t2, $s0, $s0       # max board size
+        slt     $t3, $t1, $t2       # is the tente off the board on the right?
+        beq     $t3, $zero, east_good# if t1 is not less than board size, no placement
+        div     $t1, $s0            # divide TENT location by board dim
+        mfhi    $t3                 # col index
+        beq     $t3, $zero, east_good# if in col 0, overflowed to next line. BAD
+        add     $t2, $s3, $t1       # location of TENT offset on board 
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        li      $t4, TENT           # put a tent in t3
+        beq     $t3, $t4, fail_check # if it is a tent, invalidate the spot
+    east_good:
+
+        addi    $t1, $s6, -1        # check West Position
+        slti    $t3, $t1, 0         # is the tente off the board on the left?
+        beq     $t3, $zero, westalongcheck# if on board, westalong
+        j       west_good
+    westalongcheck:
+        div     $t1, $s0            # divide TENT location by board dim
+        mfhi    $t3                 # col index
+        addi    $t2, $s0, -1        # size of column
+        beq     $t3, $t2, west_good # if on last column (as in they are equal) then bad placement
+        add     $t2, $s3, $t1       # location of TENT offset on board 
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        li      $t4, TENT           # put a tent in t3
+        beq     $t3, $t4, fail_check # if it is a tent, invalidate the spot
+
+
+    west_good:
+
         li      $v0, 1          # return true
         j       pass_check
     fail_check:
