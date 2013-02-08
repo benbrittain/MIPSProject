@@ -484,9 +484,31 @@ check:
         lb      $t3, 0($t2)         # whats at proposed tent spot
         li      $t4, TENT           # put a tent in t3
         beq     $t3, $t4, fail_check # if it is a tent, invalidate the spot
-
-
     west_good:
+
+        li      $t1, -1             # negate
+        mul     $t1, $s0, $t1       # multiply -1 times board size
+        add     $t1, $s6, $t1       # location TENT would be placed ( - offset + board size for previous row)
+        slt     $t2, $t1, $zero     # is t1 less than 0?
+        li      $t7, 1              # we need a $one
+        beq     $t2, $t7, north_good# if it is less than 0, fail!
+        add     $t2, $s3, $t1       # location of TENT offset on board 
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        li      $t4, TENT           # put a tent in t3
+        beq     $t3, $t4, fail_check # if it is a tent, invalidate the spot
+    north_good:
+
+        add     $t1, $s6, $s0       # location TENT would be placed (offset + board size for next row)
+        move    $s5, $t1            # store location of tent. later return location in v1
+        mul     $t2, $s0, $s0       # max board size
+        slt     $t2, $t2, $t1       # is t2 (board size) < new tent location?
+        li      $t7, 1              # we need a $one
+        beq     $t2, $t7, south_good# if it is overflowed, no placement
+        add     $t2, $s3, $t1       # location of TENT offset on board 
+        lb      $t3, 0($t2)         # whats at proposed tent spot
+        li      $t4, TENT           # put a tent in t3
+        beq     $t3, $t4, fail_check # if it is a tent, invalidate the spot
+    south_good:
 
         li      $v0, 1          # return true
         j       pass_check
