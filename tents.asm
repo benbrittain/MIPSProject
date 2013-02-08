@@ -54,9 +54,11 @@ str_tent:   .asciiz "A"
 str_floor:  .asciiz "-"
 str_border: .asciiz "|"
 str_corner: .asciiz "+"
-str_banner: .asciiz "******************\n**     TENTS    **\n******************"
+str_banner: .asciiz "******************\n**     TENTS    **\n******************\n"
 str_newline:.asciiz "\n"
 str_imposibru: .asciiz "Impossible Puzzle\n"
+str_init: .asciiz "\nInitial Puzzle\n\n"
+str_final: .asciiz "\nFinal Puzzle\n\n"
 
         .text				# this is program code
         .align	4			# code must be on word boundaries
@@ -64,28 +66,29 @@ str_imposibru: .asciiz "Impossible Puzzle\n"
 
 
 main:
+
         jal     read_board              # function call to read in board from file
+
+        li      $v0, 4                  # only print strings values
+        la      $a0, str_banner         # print *TENT*
+        syscall
+
+        li      $v0, 4                  # only print strings values
+        la      $a0, str_init           # print Initial Puzzle
+        syscall
+
         jal     print_board             # function call to pretty-print board
         move    $a0, $zero              # what cell are we on?
 
-
-
-#        li      $a0, 2                  # tree 1
-#        li      $a1, 4                  # position 2 now 3 now 1 now 4
-#        jal     treeplacement           #[DEBUG]
-#        la      $s3, board              # load board in s3
-#        break
-#        li      $a0, 4                  # position 4
-#        li      $a1, 0                  # tree 0
-#        jal     check                   #[DEBUG]
-
-        break
         jal     guess                   # function call to brute-force algorithm
 
-#       jal     print_board             # [TESTING]
-# WORKS, JUST NEED REMOVED FOR TESTING ###
         move    $s0, $v0                # what does guess return?
         beq     $s0, $zero, fail        # if 0, then no solution
+
+        li      $v0, 4                  # only print strings values
+        la      $a0, str_final           # print Initial Puzzle
+        syscall
+
         jal     print_board             # function call to pretty-print board
         j valid_board
     fail:
@@ -437,14 +440,6 @@ check:
         add     $t0, $t0, $s0       # add board size to get next value in col
         j       sum_col
     check_col_sum:
-#        add     $t4, $t0, $s3       # get memory address 
-#        lb      $t4, 0($t4)         # get value at memory address
-#        li      $t6, TENT           # if there is a tent there...
-#        beq     $t4, $t6, add_extra# if the same, branch and add
-#        j       no_extra
-#    add_extra:
-#        addi    $t5, $t5, 1
-#    no_extra:
         div     $s6, $s0
         mfhi    $t0                 # col index
         add     $t1, $t0, $s2       #add to get memory address of row sum
