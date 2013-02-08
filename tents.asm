@@ -215,7 +215,7 @@ treeplacement:
         li      $t1, -1             # negate
         mul     $t1, $s0, $t1       # multiply -1 times board size
         add     $t1, $s3, $t1       # location TENT would be placed ( - offset + board size for previous row)
-
+        move    $s5, $t1            # store location of tent. later return location in v1
         slt     $t2, $t1, $zero     # is t1 less than 0?
         li      $t7, 1              # we need a $one
         beq     $t2, $t7, no_placement # if it is less than 0, fail!
@@ -230,6 +230,7 @@ treeplacement:
         j donedirection
     south:
         add     $t1, $s3, $s0       # location TENT would be placed (offset + board size for next row)
+        move    $s5, $t1            # store location of tent. later return location in v1
         mul     $t2, $s0, $s0       # max board size
         slt     $t2, $t2, $t1       # is t2 (board size) < new tent location?
         li      $t7, 1              # we need a $one
@@ -244,6 +245,7 @@ treeplacement:
         j donedirection
     east:
         addi    $t1, $s3, 1         # location TENT would be placed
+        move    $s5, $t1            # store location of tent. later return location in v1
         mul     $t2, $s0, $s0       # max board size
         slt     $t3, $t1, $t2       # is the tente off the board on the right?
         beq     $t3, $zero, no_placement# if t1 is not less than board size, no placement
@@ -261,6 +263,7 @@ treeplacement:
         j donedirection
     west:
         addi    $t1, $s3, -1        # location TENT would be placed
+        move    $s5, $t1            # store location of tent. later return location in v1
         slti    $t3, $t1, 0         # is the tente off the board on the left?
         beq     $t3, $zero, westalong# if on board, westalong
         j       no_placement
@@ -280,6 +283,7 @@ treeplacement:
         j donedirection
     donedirection:
         li      $v0, 1              # set v0 to be true!
+        move    $v1, $s5            # return the board offset of the new tent
         j end_placement
     no_placement:
         li      $v0, 0              # set v0 to be false
@@ -361,6 +365,7 @@ check:
         move    $a0, $t0            # store board offset in a0, should be a tree [CHECK]
         move    $a1, $s6            # store tree direction in a1.
         jal     treeplacement       # call new function
+        move    $s6, $v1            #store new board offsett of tent in s6
         beq     $v0, $zero, fail_check # DID NOT FIT
         j       skip_oldtree
     oldtree:
@@ -377,6 +382,33 @@ check:
         j       iter_board          # move on to next cell
     iter_done:
 
+
+        div     $s6, $s0
+        mfhi    $t0                 # col index
+        mflo    $t1                 # row index
+
+        mul     $t2, $t1, $s0       # get the first element in the row
+        add     $t3, $t2, $s0       # get the next row element
+        li      $t5, 0              # running sum of row
+    sum_row:
+        beq     $t2, $t3, check_row_sum
+        add     $t4, $t2, $s3       # get memory address 
+        lb      $t4, 0($t4)         # get value at memory address
+        li      $t6, TENT           # if there is a tent there...
+        beq     $t4, $t6, add_sum
+        j       next_in_row
+    add_sum:
+        addi    $t5, $t5, 1     
+    next_in_row:
+        addi    $t2, $t2, 1
+        j       sum_row
+    check_row_sum:
+        add     $t1, $t1, $s1       #add to get memory address of row sum
+        lb      $t1, 0($t1)         #get actual value of row sum
+        beq     $t1, $t5, row_fine  # if the are the same, the row is fine
+        slt     $t6, $t5, $t1       # if t5 (the running total) is less than t1 (valid sum)
+        beq     $t6, $zero, fail_check # if it is 0 (the running total is not less than sum)
+    row_fine:
         # go through current row
         # sum up values
         # if it is greater than the row sum, return false
@@ -384,6 +416,8 @@ check:
         # go through currunt col
         # sum up values
         # if it is greater than the col sum, return false
+
+        # Check all four corners to see if being placed next to another tent
 
         #OTHERWISE
         li      $v0, 1          # return true
